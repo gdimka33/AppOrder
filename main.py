@@ -15,31 +15,17 @@ class ГлавноеОкно(tk.Tk):
         super().__init__()
         self.title("Учет личного состава")
         
-        # Размер окна
-        минимальная_ширина_окна = 800
-        высота_окна = 600
+        # Устанавливаем начальный размер окна
+        self.geometry("800x600")
         
-        # Центрируем окно на экране
-        ширина_экрана = self.winfo_screenwidth()
-        высота_экрана = self.winfo_screenheight()
-        x = (ширина_экрана - минимальная_ширина_окна) // 2
-        y = (высота_экрана - высота_окна) // 2
-        self.geometry(f"{минимальная_ширина_окна}x{высота_окна}+{x}+{y}")
-        
-        # Устанавливаем минимальный размер окна
-        self.minsize(минимальная_ширина_окна, высота_окна)
-        
-        # Разрешаем окну изменять размер в соответствии с содержимым
-        self.pack_propagate(True)
-
-        # Создаем три фрейма
+        # Создаем фреймы
         self.левый_фрейм = ttk.Frame(self, width=200, style='Left.TFrame')
         self.центральный_фрейм = ttk.Frame(self)
         
-        # Располагаем фреймы слева направо
+        # Располагаем фреймы
         self.левый_фрейм.pack(side='left', fill='y')
         self.центральный_фрейм.pack(side='left', fill='both', expand=True)
-
+        
         # Удаляем старые кнопки и добавляем группы
         # Создаем группу Приказы
         группа_приказы = ttk.LabelFrame(self.левый_фрейм, text="Приказы", padding=10)
@@ -58,6 +44,19 @@ class ГлавноеОкно(tk.Tk):
         ttk.Button(группа_списки, text="Список курсантов", 
                   command=lambda: self.показать_список_сотрудников("курсант")).pack(pady=2, fill='x')
 
+        # Обновляем размеры окна после создания всех виджетов
+        self.update_idletasks()
+        self.minsize(self.winfo_reqwidth(), 600)  # Минимальная высота 600
+        self._center_window()  # Центрируем окно
+
+    def _center_window(self):
+        """Центрирует окно на экране, сохраняя текущие размеры"""
+        self.update_idletasks()
+        current_width = self.winfo_width()
+        current_height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (current_width // 2)
+        y = (self.winfo_screenheight() // 2) - (current_height // 2)
+        self.geometry(f"+{x}+{y}")  # Меняем только позицию, не размеры
 
     def показать_список_сотрудников(self, тип_сотрудника):
         """Отображает список сотрудников в центральном фрейме"""
@@ -65,8 +64,14 @@ class ГлавноеОкно(tk.Tk):
         for виджет in self.центральный_фрейм.winfo_children():
             виджет.destroy()
         
-        # Создаем и отображаем список сотрудников, передавая ссылку на главное окно
+        # Создаем и отображаем список сотрудников
         СписокСотрудников(self.центральный_фрейм, тип_сотрудника, self)
+        
+        # Обновляем размер окна после добавления нового контента
+        self.update_idletasks()
+        # Сначала обновляем размеры, затем центрируем
+        self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_height()}")
+        self._center_window()
 
 
 if __name__ == "__main__":
