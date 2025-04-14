@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from logger import logger
 from БД_соединение import создание_базыданных
-from кл_Список_сотрудников import СписокСотрудников
+from кл_СписокСотрудников import СписокСотрудников
 
 
 # Пример использования:
