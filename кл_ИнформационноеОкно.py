@@ -38,8 +38,12 @@ class ИнформационноеОкно(ttk.Frame):
         фрейм_содержимого = ttk.Frame(self, padding=20)
         фрейм_содержимого.pack(fill='both', expand=True)
         
+        # Создаем левый фрейм для текста
+        фрейм_текста = ttk.Frame(фрейм_содержимого)
+        фрейм_текста.pack(side='left', fill='both', expand=True)
+        
         # Добавляем текст информации с поддержкой форматирования
-        self.текст = tk.Text(фрейм_содержимого, wrap='word', height=10, width=50)
+        self.текст = tk.Text(фрейм_текста, wrap='word', height=10, width=50)
         
         # Настраиваем теги форматирования
         self._настроить_форматирование()
@@ -51,16 +55,16 @@ class ИнформационноеОкно(ttk.Frame):
         self.текст.config(state='disabled')
         
         # Добавляем скроллбар
-        scrollbar = ttk.Scrollbar(фрейм_содержимого, command=self.текст.yview)
+        scrollbar = ttk.Scrollbar(фрейм_текста, command=self.текст.yview)
         self.текст.configure(yscrollcommand=scrollbar.set)
         
         # Размещаем текст и скроллбар
         scrollbar.pack(side='right', fill='y')
         self.текст.pack(side='left', fill='both', expand=True, pady=10)
         
-        # Добавляем кнопки в зависимости от типа окна
-        фрейм_кнопок = ttk.Frame(self)
-        фрейм_кнопок.pack(fill='x', pady=10)
+        # Добавляем кнопки в зависимости от типа окна (справа от текста)
+        фрейм_кнопок = ttk.Frame(фрейм_содержимого, padding=(10, 0, 0, 0))
+        фрейм_кнопок.pack(side='right', fill='y', padx=5)
         
         if self.тип_окна == "информация":
             # Только кнопка ОК
@@ -70,9 +74,9 @@ class ИнформационноеОкно(ttk.Frame):
         elif self.тип_окна == "подтверждение":
             # Кнопки Подтвердить и Отменить
             ttk.Button(фрейм_кнопок, text="Подтвердить", 
-                      command=lambda: self._обработать_действие(True)).pack(side='left', padx=5, pady=5)
+                      command=lambda: self._обработать_действие(True)).pack(padx=5, pady=5)
             ttk.Button(фрейм_кнопок, text="Отменить", 
-                      command=lambda: self._обработать_действие(False)).pack(side='right', padx=5, pady=5)
+                      command=lambda: self._обработать_действие(False)).pack(padx=5, pady=5)
             
         elif self.тип_окна == "ок":
             # Только кнопка ОК с обратным вызовом

@@ -80,6 +80,22 @@ TABLES = {
             FOREIGN KEY (подразделение_id) REFERENCES подразделения (id)
         )
     ''',
+    'приказы': '''
+        CREATE TABLE IF NOT EXISTS приказы (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            дата_создания DATE NOT NULL,
+            дата_регистрации DATE,
+            номер_регистрации TEXT,
+            исполнитель_id INTEGER NOT NULL,
+            руководитель_id INTEGER NOT NULL,
+            название TEXT NOT NULL,
+            текст_приказа TEXT NOT NULL,
+            тип_приказа TEXT NOT NULL,
+            список_лиц_согласования TEXT,
+            FOREIGN KEY (исполнитель_id) REFERENCES офицеры (id),
+            FOREIGN KEY (руководитель_id) REFERENCES офицеры (id)
+        )
+    ''',
 }
 
 def проверка_создание_таблиц():
