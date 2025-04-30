@@ -5,153 +5,241 @@ from logger import logger
 
 class ПоискОфицера(ttk.Frame):
     """
-    Виджет для поиска офицеров по фамилии.
-    Представляет собой комбобокс с функцией посимвольного поиска.
+    Виджет для поиска офицеров.
+    Состоит из поля ввода и выпадающего списка результатов.
     """
-    def __init__(self, родитель, callback=None, placeholder="Введите фамилию для поиска..."):
+    def __init__(self, родитель, callback=None, placeholder="Введите фамилию для поиска...", высота_списка=5):
         super().__init__(родитель)
-
+        
         self.callback = callback
         self.placeholder = placeholder
         self.результаты_поиска = []
+        self.высота_списка = высота_списка
+        self.root = родитель
         
-        # Создаем основной контейнер
+        # Создаем контейнер
         self.pack(fill='x', expand=True)
         
-        # Создаем комбобокс
-        self.combobox = ttk.Combobox(self)
-        self.combobox.pack(fill='x', padx=5, pady=5)
-        self.combobox['values'] = []
-        self.combobox.set(self.placeholder)
-        self.combobox.config(foreground='gray')
+        # Создаем поле ввода
+        self.entry = ttk.Entry(self)
+        self.entry.pack(fill='x', padx=5, pady=5)
+        self.entry.insert(0, self.placeholder)
+        self.entry.config(foreground='gray')
+        
+        # Создаем выпадающее окно
+        self.popup = None
+        self.список = None
         
         # Привязываем обработчики событий
-        self.combobox.bind("<FocusIn>", self._on_focus_in)
-        self.combobox.bind("<FocusOut>", self._on_focus_out)
-        self.combobox.bind("<KeyRelease>", self._on_key_release)
-        self.combobox.bind("<<ComboboxSelected>>", self._on_item_selected)
-    
-    def _on_focus_in(self, event):
-        """Обработчик получения фокуса полем ввода"""
-        if self.combobox.get() == self.placeholder:
-            self.combobox.set('')
-            self.combobox.config(foreground='black')
-    
-    def _on_focus_out(self, event):
-        """Обработчик потери фокуса полем ввода"""
-        if not self.combobox.get():
-            self.combobox.set(self.placeholder)
-            self.combobox.config(foreground='gray')
-    
-    def _on_key_release(self, event):
-        """Обработчик ввода текста в поле поиска"""
-        # Игнорируем специальные клавиши
-        if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
-            return
+        self.entry.bind("<FocusIn>", self._on_focus_in)
+        self.entry.bind("<FocusOut>", self._on_focus_out)
+        self.entry.bind("<KeyRelease>", self._on_key_release)
+        self.entry.bind("<Return>", self._on_return)
+        self.entry.bind("<Escape>", self._скрыть_список)
+
+    def _создать_список(self):
+        """Создает выпадающий список"""
+        if self.popup:
+            self.popup.destroy()
+            
+        self.popup = tk.Toplevel(self)
+        self.popup.overrideredirect(True)
+        self.popup.transient()
         
-        # Получаем текущий текст поиска
-        текст_поиска = self.combobox.get().strip()
+        # Создаем рамку
+        frame = ttk.Frame(self.popup)
+        frame.pack(fill="both", expand=True, padx=1, pady=1)
         
-        # Если текст не пустой и не равен placeholder, выполняем поиск
-        if текст_поиска and текст_поиска != self.placeholder:
-            self._выполнить_поиск(текст_поиска)
-        else:
-            # Очищаем список значений
-            self.combobox['values'] = []
-    
+        # Создаем список с плоским стилем и рамкой
+        self.список = tk.Listbox(frame, 
+                              height=self.высота_списка,
+                              activestyle='none',
+                              selectmode="single",
+                              relief='flat',
+                              borderwidth=0,
+                              highlightthickness=1,
+                              background='white',
+                              selectbackground='#E8E8E8',
+                              selectforeground='black',
+                              highlightbackground='#ADD8E6',
+                              highlightcolor='#ADD8E6')
+        self.список.pack(fill="both", expand=True)
+        
+        # Привязываем события
+        self.список.bind("<Enter>", lambda e: self.entry.focus_set())
+        self.список.bind("<Motion>", self._on_mouse_motion)
+        self.список.bind("<Button-1>", self._on_click_item)
+        self.popup.bind("<FocusOut>", self._on_popup_focus_out)
+
     def _выполнить_поиск(self, текст_поиска):
-        """Выполняет поиск офицеров по введенной фамилии"""
+        """Выполняет поиск офицеров"""
         try:
-            # Формируем запрос к базе данных
             запрос = """
-                SELECT о.id, о.фамилия, о.имя, о.отчество, з.наименование as звание, д.наименование as должность
+                SELECT о.id, о.фамилия, о.имя, о.отчество, 
+                       з.наименование as звание, 
+                       д.наименование as должность,
+                       п.наименование as подразделение
                 FROM офицеры о
                 LEFT JOIN звания з ON о.звание_id = з.id
                 LEFT JOIN должности д ON о.должность_id = д.id
-                WHERE о.фамилия LIKE ?
+                LEFT JOIN подразделения п ON о.подразделение_id = п.id
+                WHERE LOWER(о.фамилия) LIKE LOWER(?) 
+                   OR LOWER(о.имя) LIKE LOWER(?) 
+                   OR LOWER(о.отчество) LIKE LOWER(?)
                 ORDER BY о.фамилия, о.имя
             """
-            параметры = (f"{текст_поиска}%",)
-            
-            # Выполняем запрос
+            параметры = (f"%{текст_поиска}%", f"%{текст_поиска}%", f"%{текст_поиска}%")
             результат = выполнить_запрос(запрос, параметры)
             
-            # Очищаем список результатов
             self.результаты_поиска = []
-            values = []
-            
             if результат:
-                # Заполняем список результатов
+                if not self.popup or not self.список:
+                    self._создать_список()
+                self.список.delete(0, tk.END)
+                
                 for офицер in результат:
-                    фио = f"{офицер['фамилия']} {офицер['имя'][0]}.{офицер['отчество'][0] if офицер['отчество'] else ''}"
-                    должность = офицер['должность'] if офицер['должность'] else "Должность не указана"
-                    звание = офицер['звание'] if офицер['звание'] else "Звание не указано"
+                    # Преобразуем первые буквы в заглавные
+                    фамилия = офицер['фамилия'].capitalize()
+                    имя = офицер['имя'].capitalize()
+                    отчество = офицер['отчество'].capitalize() if офицер['отчество'] else ''
+                    
+                    # Форматируем ФИО
+                    фио = f"{фамилия} {имя[0]}.{отчество[0]}." if отчество else f"{фамилия} {имя[0]}."
+                    
+                    # Добавляем звание, должность и подразделение
+                    звание = офицер['звание'].capitalize() if офицер['звание'] else ''
+                    должность = офицер['должность'].capitalize() if офицер['должность'] else ''
+                    подразделение = офицер['подразделение'] if офицер['подразделение'] else ''
                     
                     отображение = f"{звание} {фио} - {должность}"
-                    values.append(отображение)
+                    if подразделение:
+                        отображение += f" ({подразделение})"
+                    
+                    self.список.insert(tk.END, отображение)
                     self.результаты_поиска.append({
                         'id': офицер['id'],
                         'отображение': отображение,
-                        'фамилия': офицер['фамилия'],
-                        'имя': офицер['имя'],
-                        'отчество': офицер['отчество'],
+                        'фамилия': фамилия,
+                        'имя': имя,
+                        'отчество': отчество,
                         'звание': звание,
-                        'должность': должность
+                        'должность': должность,
+                        'подразделение': подразделение
                     })
-                
-                # Устанавливаем значения для комбобокса
-                self.combobox['values'] = values
-                
-                # Открываем выпадающий список
-                self.combobox.event_generate('<Down>')
+                self._показать_список()
             else:
-                # Если результатов нет, очищаем список значений
-                self.combobox['values'] = []
-                
+                self._скрыть_список()
+                    
         except Exception as e:
             logger.error(f"Ошибка при поиске офицеров: {e}")
-            # Очищаем список значений
-            self.combobox['values'] = []
-    
-    def _on_item_selected(self, event):
-        """Обработчик выбора офицера из выпадающего списка"""
-        текст = self.combobox.get().strip()
+            self._скрыть_список()
+
+    def _показать_список(self):
+        """Показывает выпадающий список"""
+        if self.popup and self.список.size() > 0:
+            x = self.entry.winfo_rootx()
+            y = self.entry.winfo_rooty() + self.entry.winfo_height()
+            self.popup.geometry(f"+{x}+{y}")
+            self.popup.deiconify()
+            self.popup.lift()
+            self.popup.focus_set()
+
+    def _скрыть_список(self, event=None):
+        """Скрывает выпадающий список"""
+        if self.popup:
+            self.popup.withdraw()
+
+    def _on_mouse_motion(self, event):
+        """Обработчик движения мыши над списком"""
+        self.список.selection_clear(0, tk.END)
+        self.список.selection_set(self.список.nearest(event.y))
+
+    def _on_click_item(self, event):
+        """Обработчик клика по элементу списка"""
+        self._выбрать_элемент()
+
+    def _выбрать_элемент(self):
+        """Выбирает элемент из списка"""
+        индекс = self.список.curselection()
+        if индекс:
+            текст = self.список.get(индекс)
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, текст)
+            self.entry.config(foreground='black')
+            self._скрыть_список()
+            for офицер in self.результаты_поиска:
+                if офицер['отображение'] == текст:
+                    if self.callback:
+                        self.callback(офицер)
+                    break
+
+    def _on_popup_focus_out(self, event):
+        """Обработчик потери фокуса выпадающим окном"""
+        self._скрыть_список()
+
+    def _on_focus_in(self, event):
+        """Обработчик получения фокуса полем ввода"""
+        if self.entry.get() == self.placeholder:
+            self.entry.delete(0, tk.END)
+            self.entry.config(foreground='black')
+
+    def _on_focus_out(self, event):
+        """Обработчик потери фокуса полем ввода"""
+        if not self.entry.get():
+            self.entry.insert(0, self.placeholder)
+            self.entry.config(foreground='gray')
+
+    def _on_key_release(self, event):
+        """Обработчик ввода текста в поле поиска"""
+        if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+            return
         
-        for офицер in self.результаты_поиска:
-            if офицер['отображение'] == текст:
-                # Вызываем функцию обратного вызова, если она задана
-                if self.callback:
-                    self.callback(офицер)
-                break
-    
+        текст_поиска = self.entry.get().strip()
+        if текст_поиска and текст_поиска != self.placeholder:
+            self._выполнить_поиск(текст_поиска)
+        else:
+            self._скрыть_список()
+
+    def _on_return(self, event):
+        """Обработчик нажатия Enter"""
+        self._выбрать_элемент()
+
     def получить_выбранного_офицера(self):
         """Возвращает данные выбранного офицера или None, если офицер не выбран"""
-        текст = self.combobox.get().strip()
-        
-        # Если текст пустой или равен placeholder, возвращаем None
+        текст = self.entry.get().strip()
         if not текст or текст == self.placeholder:
             return None
-        
-        # Ищем офицера в результатах поиска
         for офицер in self.результаты_поиска:
             if офицер['отображение'] == текст:
                 return офицер
-        
         return None
-    
+
     def очистить(self):
         """Очищает поле поиска"""
-        self.combobox.set(self.placeholder)
-        self.combobox.config(foreground='gray')
-        self.combobox['values'] = []
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, self.placeholder)
+        self.entry.config(foreground='gray')
+        self._скрыть_список()
         self.результаты_поиска = []
-    
+
     def установить_значение(self, офицер):
         """Устанавливает значение в поле поиска"""
         if офицер:
-            self.combobox.set(офицер['отображение'])
-            self.combobox.config(foreground='black')
-            
-            # Добавляем офицера в результаты поиска
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, офицер['отображение'])
+            self.entry.config(foreground='black')
             if офицер not in self.результаты_поиска:
                 self.результаты_поиска.append(офицер)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("Поиск офицера")
+    root.geometry("400x200")
+    
+    def on_select(офицер):
+        print(f"Выбран офицер: {офицер['отображение']}")
+    
+    поиск = ПоискОфицера(root, callback=on_select)
+    поиск.pack(pady=20)
+    
+    root.mainloop()
