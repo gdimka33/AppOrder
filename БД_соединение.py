@@ -40,47 +40,71 @@ def создание_базыданных():
         logger.error(f"Ошибка при создании базы данных: {e}")
         raise
 
-def выполнить_запрос(sql_запрос, параметры=None):
+def выполнить_запрос(sql, params=None):
     """
     Выполняет SQL запрос к базе данных
     Args:
-        sql_запрос (str): SQL запрос
-        параметры (tuple, optional): Параметры запроса. Defaults to None.
+        sql (str): SQL запрос
+        params (tuple, dict, optional): Параметры запроса
     Returns:
-        list: Результат запроса для SELECT или список словарей для запросов с RETURNING
+        list: Результат запроса в виде списка словарей
     """
     try:
-        with sqlite3.connect(DATABASE_PATH) as connection:
-            # Устанавливаем row_factory для получения результатов в виде словаря
-            connection.row_factory = sqlite3.Row
-            cursor = connection.cursor()
+        # Подключаемся к базе данных
+        conn = sqlite3.connect(DATABASE_PATH)
+        # Включаем поддержку словарей
+        conn.row_factory = sqlite3.Row
+        
+        cursor = conn.cursor()
+        
+        # Логируем запрос
+        logger.debug(f"SQL запрос: {sql}")
+        if params:
+            logger.debug(f"Параметры: {params}")
             
-            try:
-                if параметры:
-                    cursor.execute(sql_запрос, параметры)
-                else:
-                    cursor.execute(sql_запрос)
+        # Выполняем запрос
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+            
+        # Если это SELECT запрос
+        if sql.strip().upper().startswith('SELECT'):
+            # Получаем результаты и описание столбцов
+            rows = cursor.fetchall()
+            
+            # Особая обработка для COUNT запросов
+            if sql.strip().upper().startswith('SELECT COUNT'):
+                return rows[0][0] if rows else 0
                 
-                # Для запросов SELECT возвращаем результат в виде списка словарей
-                if sql_запрос.strip().upper().startswith('SELECT'):
-                    rows = cursor.fetchall()
-                    return [dict(row) for row in rows]
-                # Для INSERT с RETURNING возвращаем результат в виде списка словарей
-                elif 'RETURNING' in sql_запрос.upper():
-                    rows = cursor.fetchall()
-                    return [dict(row) for row in rows]
-                # Для остальных запросов возвращаем None
-                else:
-                    connection.commit()
-                    return None
-                    
-            except sqlite3.Error as e:
-                logger.error(f"Ошибка при выполнении запроса: {e}\nЗапрос: {sql_запрос}")
-                connection.rollback()
-                raise
+            # Для остальных SELECT запросов преобразуем в словари
+            columns = [description[0] for description in cursor.description]
+            результат = []
+            for row in rows:
+                row_dict = {}
+                for idx, value in enumerate(row):
+                    col_name = columns[idx].lower()
+                    row_dict[col_name] = value
+                результат.append(row_dict)
                 
-    except sqlite3.Error as e:
-        logger.error(f"Ошибка при подключении к базе данных: {e}")
+            return результат
+        else:
+            # Для остальных запросов (INSERT, UPDATE, DELETE)
+            conn.commit()
+            return []
+            
+    except Exception as e:
+        logger.error(f"Ошибка при выполнении запроса: {e}")
+        logger.error(f"SQL: {sql}")
+        if params:
+            logger.error(f"Параметры: {params}")
+        conn.rollback()
         raise
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 

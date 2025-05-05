@@ -79,8 +79,16 @@ class WordTableProcessor:
         return text
 
     def remove_vn_sl(self, text):
-        """Убрать из текста 'вн. сл.' в разных формах"""
-        return re.sub(r'вн\.?\с*сл\.?', '', text, flags=re.IGNORECASE).strip()
+        """
+        Убрать из текста 'вн. сл.' и 'вю сл.' в разных формах
+        """
+        if not text:
+            return ""
+        # Удаляем 'вн. сл.' в разных формах
+        text = re.sub(r'вн\.?\s*сл\.?', '', text, flags=re.IGNORECASE)
+        # Удаляем 'вю сл.' в разных формах
+        text = re.sub(r'вю\.?\с*сл\.?', '', text, flags=re.IGNORECASE)
+        return text.strip()
 
     def clean_department_name(self, text):
         """Удаляет текст в скобках из названия подразделения и обрабатывает переносы"""
@@ -141,7 +149,6 @@ class WordTableProcessor:
     def process_employee_row(self, row):
         if len(row.cells) >= 3:
             position_rank_text = row.cells[0].text.strip()
-            # Заменяем перенос строки на пробел в ФИО
             full_name = ' '.join(row.cells[2].text.strip().split())
 
             if not full_name:
@@ -153,7 +160,7 @@ class WordTableProcessor:
             elif len(parts) == 1:
                 position, rank = parts[0], ""
             else:
-                position, rank = parts[0], '\н'.join(parts[1:])
+                position, rank = parts[0], '\n'.join(parts[1:])
 
             position = self.replace_rank_abbreviations(position)
             position = self.normalize_text(position)
@@ -162,12 +169,14 @@ class WordTableProcessor:
             rank = self.replace_rank_abbreviations(rank)
             rank = self.normalize_text(rank)
 
-            self.data.append({
-                'department': self.current_department,
-                'position': position,
-                'rank': rank,
-                'full_name': self.normalize_text(full_name)
-            })
+            # Добавляем запись только если есть звание
+            if rank.strip():
+                self.data.append({
+                    'department': self.current_department,
+                    'position': position,
+                    'rank': rank,
+                    'full_name': self.normalize_text(full_name)
+                })
 
     def save_to_excel(self, word_file_path):
         try:
@@ -183,17 +192,34 @@ class WordTableProcessor:
             ws = wb.active
             ws.title = "ОФИЦЕРЫ"
 
-            # Измененный порядок столбцов
+            # Заголовки таблицы
             headers = ["ФИО", "Звание", "Должность", "Подразделение"]
             for col_num, header in enumerate(headers, 1):
                 ws.cell(row=1, column=col_num, value=header)
 
+            # Добавляем данные
             for row_num, item in enumerate(self.data, 2):
                 ws.cell(row=row_num, column=1, value=item['full_name'])
                 ws.cell(row=row_num, column=2, value=item['rank'])
                 ws.cell(row=row_num, column=3, value=item['position'])
                 ws.cell(row=row_num, column=4, value=item['department'])
 
+            # Создаем умную таблицу
+            table_range = f"A1:D{len(self.data) + 1}"
+            table = openpyxl.worksheet.table.Table(
+                displayName="ОФИЦЕРЫ",
+                ref=table_range,
+                tableStyleInfo=openpyxl.worksheet.table.TableStyleInfo(
+                    name="TableStyleMedium2",
+                    showFirstColumn=False,
+                    showLastColumn=False,
+                    showRowStripes=True,
+                    showColumnStripes=False
+                )
+            )
+            ws.add_table(table)
+
+            # Настраиваем ширину столбцов
             for col in ws.columns:
                 max_length = 0
                 column = col[0].column_letter
