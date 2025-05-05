@@ -40,36 +40,47 @@ def создание_базыданных():
         logger.error(f"Ошибка при создании базы данных: {e}")
         raise
 
-def выполнить_запрос(query, parameters=None):
+def выполнить_запрос(sql_запрос, параметры=None):
     """
     Выполняет SQL запрос к базе данных
-    
     Args:
-        query (str): SQL запрос
-        parameters (tuple|dict|None): Параметры для SQL запроса
-    
+        sql_запрос (str): SQL запрос
+        параметры (tuple, optional): Параметры запроса. Defaults to None.
     Returns:
-        list: Результат запроса для SELECT или None для других операций
+        list: Результат запроса для SELECT или список словарей для запросов с RETURNING
     """
     try:
-        with подключение_базыданных() as connection:
+        with sqlite3.connect(DATABASE_PATH) as connection:
+            # Устанавливаем row_factory для получения результатов в виде словаря
+            connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             
-            if parameters:
-                cursor.execute(query, parameters)
-            else:
-                cursor.execute(query)
+            try:
+                if параметры:
+                    cursor.execute(sql_запрос, параметры)
+                else:
+                    cursor.execute(sql_запрос)
                 
-            # Если это SELECT запрос
-            if query.strip().upper().startswith("SELECT"):
-                return cursor.fetchall()
-            
-            # Для INSERT, UPDATE, DELETE запросов
-            connection.commit()
-            return None
-            
-    except sqlite3.Error as error:
-        logger.error(f"Ошибка при выполнении запроса: {error}\nЗапрос: {query}")
+                # Для запросов SELECT возвращаем результат в виде списка словарей
+                if sql_запрос.strip().upper().startswith('SELECT'):
+                    rows = cursor.fetchall()
+                    return [dict(row) for row in rows]
+                # Для INSERT с RETURNING возвращаем результат в виде списка словарей
+                elif 'RETURNING' in sql_запрос.upper():
+                    rows = cursor.fetchall()
+                    return [dict(row) for row in rows]
+                # Для остальных запросов возвращаем None
+                else:
+                    connection.commit()
+                    return None
+                    
+            except sqlite3.Error as e:
+                logger.error(f"Ошибка при выполнении запроса: {e}\nЗапрос: {sql_запрос}")
+                connection.rollback()
+                raise
+                
+    except sqlite3.Error as e:
+        logger.error(f"Ошибка при подключении к базе данных: {e}")
         raise
 
 
