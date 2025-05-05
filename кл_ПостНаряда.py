@@ -11,38 +11,176 @@ class ПостНаряда(ttk.Frame):
     def __init__(
         self,
         master,
-        пост_ид: int,  # Добавляем ID поста из БД
+        пост_ид: int,
         дата_наряда: datetime,
         подразделение: str,
         **kwargs
     ):
-        super().__init__(master, **kwargs)
+        # Initialize instance variables first
         self.пост_ид = пост_ид
         self.дата_наряда = дата_наряда
         self.подразделение = подразделение
         
-        # Загружаем данные поста из БД
+        # Initialize other variables
+        self.is_assigned_var = tk.BooleanVar(value=True)
+        self.тип_сотрудника_var = tk.StringVar(value="officer")  # Set default here ONLY
+        self.количество_дневальных_var = tk.IntVar() # Variable for dnavalny quantity
+        self.поля_ввода_дневальные = [] # List to hold dnavalny input fields
+        
+        # Load post data
         self.данные_поста = self._загрузить_данные_поста()
         
-        # Переменные состояния
-        self.is_assigned_var = tk.BooleanVar(value=True)
-        self.has_officer_var = tk.BooleanVar(value=True)  # Всегда True
-        self.has_personnel_var = tk.BooleanVar(value=True)  # Всегда True
-        # По умолчанию устанавливаем officer для всех постов
-        self.officer_type_var = tk.StringVar(value="officer")
-        self.officer_name_var = tk.StringVar(value="")
-        # Изменяем начальное значение количества дневальных
-        self.personnel_count_var = tk.IntVar(value=self.данные_поста['дневальный_кол'])
-        self.max_personnel = self.данные_поста['дневальный_кол']
-        self.personnel_names_vars = [tk.StringVar(value="") for _ in range(max(1, self.данные_поста['дневальный_кол']))]
+        # Set custom styles
+        style = ttk.Style()
+        style.configure('фрейм_Пост_наряда.TFrame', background='#ffcccc')
+        style.configure('фрейм_назначен.TFrame', background='#f0f0f0')
         
-        # Создание виджетов
-        self._create_widgets()
-        self._setup_bindings()
-        self._update_widgets_state()
+        # Initialize with custom style
+        super().__init__(master, style='фрейм_Пост_наряда.TFrame', **kwargs)
+        
+        # Configure frame with minimum height and full width (no vertical expansion)
+        self.pack(fill='x')  # Only fill horizontally
+        self.configure(height=50)  # Set fixed minimum height to 50 pixels
+        
+        # Создаем фрейм для чекбокса
+        self.фрейм_назначен = ttk.Frame(self, style='фрейм_назначен.TFrame')
+        self.фрейм_назначен.pack(side='left', padx=5, pady=5)
+        
+        # Чекбокс
+        self.status_check = ttk.Checkbutton(
+            self.фрейм_назначен, 
+            variable=self.is_assigned_var
+        )
+        self.status_check.pack(padx=5, pady=5)
+
+        # Добавляем стиль для нового фрейма
+        style.configure('фрейм_для_наименование_дата.TFrame', background='#e0ffff')  # Light blue
+        
+        # Создаем фрейм для наименования и даты
+        self.фрейм_для_наименование_дата = ttk.Frame(self, style='фрейм_для_наименование_дата.TFrame')
+        self.фрейм_для_наименование_дата.pack(side='top', fill='x', padx=5, pady=5)
+        
+        # Фрейм для наименования поста
+        self.фрейм_наименование = ttk.Frame(self.фрейм_для_наименование_дата)
+        self.фрейм_наименование.pack(side='left', fill='x', expand=True)
+        
+        # Метка с наименованием поста
+        self.name_label = ttk.Label(
+            self.фрейм_наименование,
+            text=self.данные_поста['наименование'],
+            font=('Helvetica', 10, 'bold'),
+            justify='left'  # Add this line to align text to the left
+        )
+        self.name_label.pack(padx=5, pady=5, anchor='w')  # Add anchor='w' for left alignment
+        
+        # Фрейм для даты
+        self.фрейм_дата = ttk.Frame(self.фрейм_для_наименование_дата)
+        self.фрейм_дата.pack(side='left', padx=5)
+        
+        # Метка с датой
+        self.date_label = ttk.Label(
+            self.фрейм_дата,
+            text=self.дата_наряда.strftime("%d.%m.%Y"),
+            font=('Helvetica', 10)
+        )
+        self.date_label.pack(padx=5, pady=5)
+
+        # Добавляем стиль для нового фрейма
+        style.configure('фрейм_поля_ввода.TFrame', background='#ff0000')  # Red
+        
+        # Создаем основной фрейм для полей ввода
+        self.фрейм_поля_ввода = ttk.Frame(self, style='фрейм_поля_ввода.TFrame')
+        self.фрейм_поля_ввода.pack(side='left', fill='both', expand=True, padx=5, pady=5)
+        
+        # Создаем фрейм для выбора типа сотрудника
+        self.фрейм_выбор_типа_сотрудника = ttk.Frame(self.фрейм_поля_ввода)
+        self.фрейм_выбор_типа_сотрудника.pack(side='left', fill='x', pady=5)
+
+        # Радиокнопки
+        ttk.Radiobutton(
+            self.фрейм_выбор_типа_сотрудника,
+            text="Офицер",
+            variable=self.тип_сотрудника_var,
+            value="officer",
+            command=self._обновить_поле_ввода_дежурный # Use command for updates
+        ).pack(side='left', padx=5)
+        
+        ttk.Radiobutton(
+            self.фрейм_выбор_типа_сотрудника,
+            text="Курсант",
+            variable=self.тип_сотрудника_var,
+            value="cadet",
+            command=self._обновить_поле_ввода_дежурный # Use command for updates
+        ).pack(side='left', padx=5)
+
+        # Remove duplicate default setting and trace_add
+        # self.тип_сотрудника_var.set("officer")  # No longer needed
+        # self.тип_сотрудника_var.trace_add('write', lambda *_: self._обновить_поле_ввода_дежурный()) # No longer needed
+        
+        # Создаем фрейм для полей ввода
+        self.фрейм_поля_для_ввода = ttk.Frame(self.фрейм_поля_ввода, style='фрейм_поля_для_ввода.TFrame')
+        self.фрейм_поля_для_ввода.pack(side='right', fill='both', expand=True, padx=5, pady=5)
+
+        # Добавляем стили для новых фреймов
+        style.configure('фрейм_дежурный.TFrame', background='#0000ff')  # Blue
+        style.configure('фрейм_дневальные.TFrame', background='#ffc0cb')  # Pink
+        
+        # Создаем фрейм для дежурных
+        self.фрейм_дежурный = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дежурный.TFrame')
+        self.фрейм_дежурный.pack(side='top', fill='both', expand=True, padx=5, pady=5)
+        
+        # Лейбл "Дежурный"
+        self.лейбл_дежурный = ttk.Label(self.фрейм_дежурный, text="Дежурный")
+        self.лейбл_дежурный.pack(side='left', padx=5, pady=5)
+        
+        # Поле ввода (будет обновляться в зависимости от выбора)
+        self.поле_ввода_дежурный = None
+        # Call update ONCE here after фрейм_дежурный is created
+        self._обновить_поле_ввода_дежурный() 
+        
+        # Создаем фрейм для дневальных
+        self.фрейм_дневальные = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дневальные.TFrame')
+        self.фрейм_дневальные.pack(side='top', fill='both', expand=True, padx=5, pady=5)
+
+        # --- Start of Дневальные Section ---
+
+        # Фрейм для выбора количества (слева)
+        self.фрейм_выбор_количества = ttk.Frame(self.фрейм_дневальные)
+        self.фрейм_выбор_количества.pack(side='left', fill='y', padx=5, pady=5)
+
+        # Лейбл "Дневальные"
+        self.лейбл_дневальные = ttk.Label(self.фрейм_выбор_количества, text="Дневальные")
+        self.лейбл_дневальные.pack(side='top', pady=(0, 5))
+
+        # Выбор количества дневальных (Spinbox)
+        # Determine max quantity from loaded data, default to 0 if not available
+        max_дневальные = self.данные_поста.get('дневальный_кол', 0)
+        self.выбор_количества = ttk.Spinbox(
+            self.фрейм_выбор_количества,
+            from_=0,
+            to=max_дневальные, # Use max quantity from data
+            textvariable=self.количество_дневальных_var,
+            width=5,
+            command=self._обновить_поля_ввода_дневальные # Update fields on change
+        )
+        self.выбор_количества.pack(side='top')
+        # Set initial quantity (e.g., to the max allowed or 0)
+        self.количество_дневальных_var.set(max_дневальные) # Or set to 0 if you prefer
+
+        # Фрейм для полей ввода дневальных (справа)
+        self.фрейм_поля_ввода_дневальные = ttk.Frame(self.фрейм_дневальные)
+        self.фрейм_поля_ввода_дневальные.pack(side='right', fill='both', expand=True, padx=5, pady=5)
+
+        # Инициализируем поля ввода для дневальных
+        self._обновить_поля_ввода_дневальные()
+
+        # --- End of Дневальные Section ---
+
+        # Remove the duplicate variable definition at the end
+        # self.тип_сотрудника_var = tk.StringVar(value="officer") # Remove this line
 
     def _загрузить_данные_поста(self) -> dict:
-        """Загружает данные поста из БД"""
+        """Загружает данные поста из БД по ID"""
         try:
             запрос = """
                 SELECT 
@@ -58,49 +196,23 @@ class ПостНаряда(ttk.Frame):
                 WHERE id = ?
             """
             результат = выполнить_запрос(запрос, (self.пост_ид,))
+            
             if результат:
-                # Создаем словарь с фиксированными ключами
-                поля = [
-                    'id', 
-                    'наименование', 
-                    'дежурный', 
-                    'дежурный_кол',
-                    'дежурный_офицер',
-                    'дежурный_курсант',
-                    'дневальный',
-                    'дневальный_кол'
-                ]
-                данные = dict(zip(поля, результат[0]))
-                
-                # Проверяем наличие всех необходимых ключей
-                обязательные_поля = {
-                    'id': self.пост_ид,
-                    'наименование': 'Неизвестный пост',
-                    'дежурный': False,
-                    'дежурный_кол': 0,
-                    'дежурный_офицер': False,
-                    'дежурный_курсант': False,
-                    'дневальный': False,
-                    'дневальный_кол': 0
+                # Создаем словарь с правильными ключами
+                данные = {
+                    'id': результат[0]['id'],
+                    'наименование': результат[0]['наименование'],
+                    'дежурный': bool(результат[0]['дежурный']),
+                    'дежурный_кол': int(результат[0]['дежурный_кол'] or 0),
+                    'дежурный_офицер': bool(результат[0]['дежурный_офицер']),
+                    'дежурный_курсант': bool(результат[0]['дежурный_курсант']),
+                    'дневальный': bool(результат[0]['дневальный']),
+                    'дневальный_кол': int(результат[0]['дневальный_кол'] or 0)
                 }
-                
-                # Заполняем отсутствующие поля значениями по умолчанию
-                for поле, значение_по_умолчанию in обязательные_поля.items():
-                    if поле not in данные or данные[поле] is None:  # заменили "или" на "or"
-                        данные[поле] = значение_по_умолчанию
-                        logger.warning(f"Поле {поле} отсутствует в данных поста {self.пост_ид}, установлено значение по умолчанию")
-                
-                # Преобразуем булевы значения
-                for поле in ['дежурный', 'дежурный_офицер', 'дежурный_курсант', 'дневальный']:
-                    данные[поле] = bool(данные[поле])
-                
-                # Преобразуем числовые значения
-                for поле in ['дежурный_кол', 'дневальный_кол']:
-                    данные[поле] = int(данные[поле])
-                
                 return данные
             else:
                 raise ValueError(f"Пост с ID {self.пост_ид} не найден")
+                
         except Exception as e:
             logger.error(f"Ошибка при загрузке данных поста {self.пост_ид}: {e}")
             return {
@@ -114,345 +226,42 @@ class ПостНаряда(ttk.Frame):
                 'дневальный_кол': 0
             }
 
-    def _create_widgets(self):
-        """Создает все элементы интерфейса в зависимости от данных поста"""
-        self.configure(borderwidth=1, relief="solid", padding=5)
-        
-        # Создаем главный контейнер
-        self.main_container = ttk.Frame(self)
-        self.main_container.pack(fill="x")
-        
-        # Фрейм для чекбокса (первая колонка)
-        self.checkbox_frame = ttk.Frame(self.main_container, width=30)
-        self.checkbox_frame.pack(side="left", anchor="n")
-        
-        self.status_check = ttk.Checkbutton(
-            self.checkbox_frame, 
-            variable=self.is_assigned_var
-        )
-        self.status_check.pack(padx=5, pady=5)
-        
-        # Фрейм для названия наряда (вторая колонка)
-        self.name_frame = ttk.Frame(self.main_container)
-        self.name_frame.pack(side="left", fill="y", padx=5)
-        
-        self.name_label = ttk.Label(
-            self.name_frame,
-            text=self.данные_поста['наименование'],
-            font=('Helvetica', 10, 'bold'),
-            width=30,  # Фиксированная ширина в символах
-            wraplength=250,  # Максимальная ширина текста в пикселях для переноса
-            justify="left"
-        )
-        self.name_label.pack(anchor="w", pady=5)
-        
-        # Фрейм для дежурных/дневальных (третья колонка)
-        self.duty_frame = ttk.Frame(self.main_container)
-        self.duty_frame.pack(side="left", fill="x", expand=True)
-
-        # Разделяем на две части
-        self.duty_labels_frame = ttk.Frame(self.duty_frame)
-        self.duty_labels_frame.pack(side="left", padx=(5, 10), fill="y")
-        
-        self.duty_entries_frame = ttk.Frame(self.duty_frame)
-        self.duty_entries_frame.pack(side="left", fill="both", expand=True)
-        
-        # Создаем элементы управления
-        if self.данные_поста['дежурный']:
-            self._create_officer_widgets()
-        
-        if self.данные_поста['дневальный']:
-            self._create_personnel_widgets()
+    def _обновить_поле_ввода_дежурный(self):
+        """Обновляет поле ввода в зависимости от выбранного типа сотрудника"""
+        if self.поле_ввода_дежурный:
+            self.поле_ввода_дежурный.destroy()
             
-        # Фрейм для даты (четвертая колонка)
-        self.time_frame = ttk.Frame(self.main_container, width=50)
-        self.time_frame.pack(side="left", fill="y")
-        self.time_frame.pack_propagate(False)
-        
-        self.time_label = ttk.Label(
-            self.time_frame,
-            text=self.дата_наряда.strftime("%d.%m.%Y\n%H:%M"),
-            justify="left"
-        )
-        self.time_label.pack(anchor="ne", padx=5, pady=5)
-
-    def _create_officer_widgets(self):
-        """Создает виджеты для дежурного"""
-        # Метка "Дежурный" в левой части только если есть дневальные
-        if self.данные_поста['дневальный']:
-            ttk.Label(self.duty_labels_frame, text="Дежурный").pack(anchor="nw", pady=(0, 5))
-        
-        # Очищаем фрейм для ввода
-        for widget in self.duty_entries_frame.winfo_children():
-            widget.destroy()
-        
-        # Создаем фрейм для радиокнопок
-        type_frame = ttk.Frame(self.duty_entries_frame)
-        type_frame.pack(fill="x", pady=(0, 5))
-        
-        # Показываем радиокнопки только если разрешены оба типа дежурных
-        if self.данные_поста['дежурный_офицер'] and self.данные_поста['дежурный_курсант']:
-            ttk.Radiobutton(
-                type_frame,
-                text="Офицер",
-                variable=self.officer_type_var,
-                value="officer",
-                command=self._update_officer_entry
-            ).pack(side="left", padx=5)
-            
-            ttk.Radiobutton(
-                type_frame,
-                text="Курсант",
-                variable=self.officer_type_var,
-                value="cadet",
-                command=self._update_officer_entry
-            ).pack(side="left", padx=5)
-        elif self.данные_поста['дежурный_офицер']:
-            self.officer_type_var.set("officer")
-        elif self.данные_поста['дежурный_курсант']:
-            self.officer_type_var.set("cadet")
-        
-        # Создаем виджет поиска
-        self._update_officer_entry()
-
-    def _update_officer_entry(self):
-        """Обновляет поле поиска в зависимости от выбранного типа дежурного"""
-        # Удаляем существующий виджет поиска
-        for widget in self.duty_entries_frame.winfo_children():
-            if isinstance(widget, (ПоискОфицера, ПоискКурсанта)):
-                widget.destroy()
-        
-        # Создаем новый виджет поиска
-        search_frame = ttk.Frame(self.duty_entries_frame)
-        search_frame.pack(fill="x", expand=True)
-        
-        if self.officer_type_var.get() == "officer":
-            self.officer_search = ПоискОфицера(
-                search_frame,
-                callback=self._on_officer_selected
-            )
+        if self.тип_сотрудника_var.get() == "officer":
+            self.поле_ввода_дежурный = ПоискОфицера(self.фрейм_дежурный)
         else:
-            self.officer_search = ПоискКурсанта(
-                search_frame,
-                callback=self._on_officer_selected
-            )
-        self.officer_search.pack(fill="x", expand=True)
-
-    def _create_personnel_widgets(self):
-        """Создает виджеты для дневальных"""
-        # Левая часть - заголовок
-        personnel_label_frame = ttk.Frame(self.duty_labels_frame)
-        personnel_label_frame.pack(anchor="nw", fill="x")
-        
-        # Заголовок
-        header_text = "Дневальные" if self.данные_поста['дневальный_кол'] > 1 else "Дневальный"
-        ttk.Label(personnel_label_frame, text=header_text).pack(anchor="nw")
-        
-        # Контроль количества
-        if self.данные_поста['дневальный_кол'] > 1:
-            count_frame = ttk.Frame(personnel_label_frame)
-            count_frame.pack(anchor="nw", pady=2)
+            self.поле_ввода_дежурный = ПоискКурсанта(self.фрейм_дежурный)
             
-            ttk.Button(count_frame, text="-", width=2,
-                      command=lambda: self._change_personnel_count(-1)).pack(side="left")
-            ttk.Label(count_frame, textvariable=self.personnel_count_var,
-                     width=3, anchor="center").pack(side="left", padx=2)
-            ttk.Button(count_frame, text="+", width=2,
-                      command=lambda: self._change_personnel_count(1)).pack(side="left")
-        
-        # Правая часть - поля поиска для дневальных
-        self.personnel_entries_frame = ttk.Frame(self.duty_entries_frame)
-        self.personnel_entries_frame.pack(fill="x")
-        
-        # Создаем поля поиска
-        self._update_personnel_entries()
+        self.поле_ввода_дежурный.pack(side='left', fill='x', expand=True, padx=5, pady=5)
 
-    def _setup_bindings(self):
-        """Настраивает привязки событий"""
-        self.is_assigned_var.trace_add("write", lambda *_: self._update_widgets_state())
-        self.has_officer_var.trace_add("write", lambda *_: self._update_widgets_state())
-        self.has_personnel_var.trace_add("write", lambda *_: self._update_widgets_state())
-        self.personnel_count_var.trace_add("write", lambda *_: self._update_personnel_count())
-    
-    def _update_widgets_state(self):
-        """Обновляет состояние виджетов"""
-        # Состояние активности
-        active = self.is_assigned_var.get()
-        
-        # Список базовых виджетов
-        base_widgets = [
-            'name_label',
-            'entry_frame',
-            'time_frame'
-        ]
-        
-        # Обновляем состояние базовых виджетов
-        for widget_name in base_widgets:
-            if hasattr(self, widget_name):
-                widget = getattr(self, widget_name)
-                if hasattr(widget, 'state'):
-                    widget.state(["!disabled" if active else "disabled"])
-        
-        # Обновляем состояние виджетов дежурного
-        if self.данные_поста['дежурный']:
-            if hasattr(self, 'officer_entry'):
-                self.officer_entry.state(["!disabled" if active else "disabled"])
-                
-            if hasattr(self, 'officer_type_frame'):
-                self.officer_type_frame.state(["!disabled" if active else "disabled"])
-        
-        # Обновляем состояние виджетов дневальных
-        if self.данные_поста['дневальный']:
-            if hasattr(self, 'personnel_control_frame'):
-                self.personnel_control_frame.state(["!disabled" if active else "disabled"])
-                
-            if hasattr(self, 'personnel_entries_frame'):
-                for entry in self.personnel_entries_frame.winfo_children():
-                    if hasattr(entry, 'state'):
-                        entry.state(["!disabled" if active else "disabled"])
-        
-        # Обновляем цвет неактивных полей
-        self._update_disabled_style()
-    
-    def _update_disabled_style(self):
-        """Обновляет стиль неактивных полей"""
-        style = ttk.Style()
-        style.configure("Disabled.TEntry", foreground="gray")
-        style.configure("Normal.TEntry", foreground="black")
-        
-        # Поле дежурного
-        if hasattr(self, 'officer_entry'):
-            if self.officer_entry.instate(["disabled"]):
-                self.officer_entry.configure(style="Disabled.TEntry")
-            else:
-                self.officer_entry.configure(style="Normal.TEntry")
-        
-        # Поля дневальных
-        if hasattr(self, 'personnel_entries_frame'):
-            for entry in self.personnel_entries_frame.winfo_children():
-                if entry.instate(["disabled"]):
-                    entry.configure(style="Disabled.TEntry")
-                else:
-                    entry.configure(style="Normal.TEntry")
-    
-    def _update_personnel_entries(self):
-        """Обновляет поля поиска дневальных"""
-        # Очищаем существующие поля
-        for widget in self.personnel_entries_frame.winfo_children():
-            widget.destroy()
-        
-        # Определяем количество полей
-        count = self.personnel_count_var.get()
-        
-        # Создаем поля поиска
-        self.personnel_searches = []
-        for i in range(count):
-            search_frame = ttk.Frame(self.personnel_entries_frame)
-            search_frame.pack(fill="x", pady=(0, 2))
-            
-            search = ПоискКурсанта(
-                search_frame,
-                callback=lambda idx=i: self._on_personnel_selected(idx)
-            )
-            search.pack(fill="x", expand=True)
-            self.personnel_searches.append(search)
-    
-    def _change_personnel_count(self, delta):
-        """Изменяет количество дневальных в пределах допустимого диапазона"""
-        new_count = self.personnel_count_var.get() + delta
-        if 1 <= new_count <= self.max_personnel:
-            self.personnel_count_var.set(new_count)
-    
-    def _update_personnel_count(self, *args):
-        """Обновляет поля при изменении количества дневальных"""
-        self._update_personnel_entries()
-    
-    def сохранить_наряд(self):
-        """Сохраняет данные наряда в БД"""
+    # --- New Method for Дневальные ---
+    def _обновить_поля_ввода_дневальные(self):
+        """Обновляет поля ввода для дневальных в зависимости от выбранного количества."""
+        # Уничтожаем старые поля ввода
+        for поле_ввода in self.поля_ввода_дневальные:
+            поле_ввода.destroy()
+        self.поля_ввода_дневальные.clear() # Очищаем список
+
         try:
-            данные = self.get_data()
-            запрос = """
-                INSERT INTO наряды (
-                    пост_ид,
-                    дата_наряда,
-                    подразделение,
-                    дежурный_офицер,
-                    дежурный_фио,
-                    количество_дневальных,
-                    дневальные_список
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """
-            параметры = (
-                self.пост_ид,
-                self.дата_наряда.strftime("%Y-%m-%d %H:%M:%S"),
-                self.подразделение,
-                1 if данные['officer_type'] == 'officer' else 0,
-                данные['officer_name'],
-                данные['personnel_count'],
-                ','.join(данные['personnel_names'])
-            )
-            выполнить_запрос(запрос, параметры)
-            logger.info(f"Наряд для поста {self.пост_ид} успешно сохранен")
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка при сохранении наряда для поста {self.пост_ид}: {e}")
-            messagebox.showerror("Ошибка", f"Не удалось сохранить наряд: {e}")
-            return False
+            количество = self.количество_дневальных_var.get()
+        except tk.TclError:
+            количество = 0 # Handle cases where the value might be invalid temporarily
 
-    def get_data(self):
-        """Возвращает данные из виджета"""
-        return {
-            "пост_ид": self.пост_ид,
-            "наименование": self.данные_поста['наименование'],
-            "дата_наряда": self.дата_наряда,
-            "подразделение": self.подразделение,
-            "is_assigned": self.is_assigned_var.get(),
-            "has_officer": self.has_officer_var.get(),
-            "officer_type": self.officer_type_var.get(),
-            "officer_name": self.officer_name_var.get(),
-            "has_personnel": self.has_personnel_var.get(),
-            "personnel_count": self.personnel_count_var.get(),
-            "personnel_names": [var.get() for var in self.personnel_names_vars[:self.personnel_count_var.get()]]
-        }
-
-    def _on_officer_selected(self, officer):
-        """Обработчик выбора офицера"""
-        if officer:
-            self.officer_name_var.set(officer['отображение'])
-    
-    def _on_officer_type_changed(self, *args):
-        """Обработчик изменения типа дежурного"""
-        self._update_officer_entry()
-        self.officer_name_var.set("")  # Очищаем поле при смене типа
-
-
-# Пример использования
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Улучшенный виджет наряда")
-    
-    # Создаем стиль для виджета
-    style = ttk.Style()
-    style.configure("Duty.TFrame", borderwidth=1, relief="solid")
-    
-    # Создаем тестовый наряд
-    duty = ПостНаряда(
-        root,
-        пост_ид=1,
-        дата_наряда=datetime(2023, 12, 15, 8, 0),
-        подразделение="1-я рота",
-        style="Duty.TFrame"
-    )
-    duty.pack(fill="x", padx=10, pady=5, ipady=5)
-    
-    root.mainloop()
+        # Создаем новые поля ввода
+        for i in range(количество):
+            поле_ввода = ПоискКурсанта(self.фрейм_поля_ввода_дневальные)
+            поле_ввода.pack(side='top', fill='x', expand=True, padx=5, pady=2) # Pack vertically
+            self.поля_ввода_дневальные.append(поле_ввода)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("Пост Наряда")
-    
-    # Пример создания виджета
-    пост_наряда = ПостНаряда(root, 1, datetime.now(), "1-я рота")
-    пост_наряда.pack(padx=10, pady=10)
-    
+    root.title("Состав наряда")
+    root.geometry("800x600")
+
+    app = ПостНаряда(root, пост_ид=7, дата_наряда=datetime.now(), подразделение="")
+    app.pack(fill='x')  # Убрал expand=True, чтобы фрейм не растягивался по высоте
     root.mainloop()
