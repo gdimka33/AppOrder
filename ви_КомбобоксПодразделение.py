@@ -115,3 +115,14 @@ class ВиджетПодразделения(ttk.Combobox):
                 self.current(i)
                 return True
         return False
+
+if __name__ == "__main__":
+    # Пример использования класса ВиджетПодразделения
+    root = tk.Tk()
+    root.title("Выбор подразделения")
+
+    # Создаем экземпляр виджета
+    виджет = ВиджетПодразделения(root)
+    виджет.pack()
+
+    root.mainloop()
