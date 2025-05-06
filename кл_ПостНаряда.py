@@ -94,24 +94,43 @@ class ПостНаряда(ttk.Frame):
         
         # Создаем фрейм для выбора типа сотрудника
         self.фрейм_выбор_типа_сотрудника = ttk.Frame(self.фрейм_поля_ввода)
-        self.фрейм_выбор_типа_сотрудника.pack(side='left', fill='x', pady=5)
+        # Не пакуем фрейм сразу, сделаем это после добавления кнопок
 
-        # Радиокнопки
-        ttk.Radiobutton(
-            self.фрейм_выбор_типа_сотрудника,
-            text="Офицер",
-            variable=self.тип_сотрудника_var,
-            value="officer",
-            command=self._обновить_поле_ввода_дежурный # Use command for updates
-        ).pack(side='left', padx=5)
-        
-        ttk.Radiobutton(
-            self.фрейм_выбор_типа_сотрудника,
-            text="Курсант",
-            variable=self.тип_сотрудника_var,
-            value="cadet",
-            command=self._обновить_поле_ввода_дежурный # Use command for updates
-        ).pack(side='left', padx=5)
+        # Определяем доступные типы
+        can_assign_officer = self.данные_поста.get('дежурный_офицер', False)
+        can_assign_cadet = self.данные_поста.get('дежурный_курсант', False)
+
+        # Логика отображения выбора типа и установки значения по умолчанию
+        if can_assign_officer and can_assign_cadet:
+            # Оба типа доступны - показываем выбор
+            self.тип_сотрудника_var.set("officer") # По умолчанию офицер
+            ttk.Radiobutton(
+                self.фрейм_выбор_типа_сотрудника,
+                text="Офицер",
+                variable=self.тип_сотрудника_var,
+                value="officer",
+                command=self._обновить_поле_ввода_дежурный
+            ).pack(side='top', anchor='w', pady=2) # Изменено side на 'top' и добавлен anchor='w', pady=2
+            ttk.Radiobutton(
+                self.фрейм_выбор_типа_сотрудника,
+                text="Курсант",
+                variable=self.тип_сотрудника_var,
+                value="cadet",
+                command=self._обновить_поле_ввода_дежурный
+            ).pack(side='top', anchor='w', pady=2) # Изменено side на 'top' и добавлен anchor='w', pady=2
+            self.фрейм_выбор_типа_сотрудника.pack(side='left', fill='y', padx=5) # Изменено fill на 'y' и padx
+        elif can_assign_officer:
+            # Только офицер доступен - скрываем выбор, устанавливаем офицера
+            self.тип_сотрудника_var.set("officer")
+            # Фрейм self.фрейм_выбор_типа_сотрудника не пакуется
+        elif can_assign_cadet:
+            # Только курсант доступен - скрываем выбор, устанавливаем курсанта
+            self.тип_сотрудника_var.set("cadet")
+            # Фрейм self.фрейм_выбор_типа_сотрудника не пакуется
+        else:
+            # Ни один тип не доступен
+            self.тип_сотрудника_var.set("")
+            # Фрейм self.фрейм_выбор_типа_сотрудника не пакуется
 
         # Remove duplicate default setting and trace_add
         # self.тип_сотрудника_var.set("officer")  # No longer needed
@@ -129,50 +148,62 @@ class ПостНаряда(ttk.Frame):
         self.фрейм_дежурный = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дежурный.TFrame')
         self.фрейм_дежурный.pack(side='top', fill='both', expand=True, padx=5, pady=5)
         
-        # Лейбл "Дежурный"
-        self.лейбл_дежурный = ttk.Label(self.фрейм_дежурный, text="Дежурный")
-        self.лейбл_дежурный.pack(side='left', padx=5, pady=5)
+        # Лейбл "Дежурный" (отображается, если можно назначить курсанта или обоих)
+        if not can_assign_officer or can_assign_cadet:
+            self.лейбл_дежурный = ttk.Label(self.фрейм_дежурный, text="Дежурный")
+            self.лейбл_дежурный.pack(side='left', padx=5, pady=5)
+        else:
+            self.лейбл_дежурный = None # Убедимся, что атрибут существует, даже если метка не создана
         
         # Поле ввода (будет обновляться в зависимости от выбора)
         self.поле_ввода_дежурный = None
         # Call update ONCE here after фрейм_дежурный is created
-        self._обновить_поле_ввода_дежурный() 
-        
-        # Создаем фрейм для дневальных
-        self.фрейм_дневальные = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дневальные.TFrame')
-        self.фрейм_дневальные.pack(side='top', fill='both', expand=True, padx=5, pady=5)
+        self._обновить_поле_ввода_дежурный()
 
         # --- Start of Дневальные Section ---
+        # Check if dnavalnye are assigned for this post
+        if self.данные_поста.get('дневальный', False):
+            # Создаем фрейм для дневальных только если они нужны
+            self.фрейм_дневальные = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дневальные.TFrame')
+            self.фрейм_дневальные.pack(side='top', fill='both', expand=True, padx=5, pady=5)
 
-        # Фрейм для выбора количества (слева)
-        self.фрейм_выбор_количества = ttk.Frame(self.фрейм_дневальные)
-        self.фрейм_выбор_количества.pack(side='left', fill='y', padx=5, pady=5)
+            # Фрейм для выбора количества (слева)
+            self.фрейм_выбор_количества = ttk.Frame(self.фрейм_дневальные)
+            self.фрейм_выбор_количества.pack(side='left', fill='y', padx=5, pady=5)
 
-        # Лейбл "Дневальные"
-        self.лейбл_дневальные = ttk.Label(self.фрейм_выбор_количества, text="Дневальные")
-        self.лейбл_дневальные.pack(side='top', pady=(0, 5))
+            # Лейбл "Дневальные"
+            self.лейбл_дневальные = ttk.Label(self.фрейм_выбор_количества, text="Дневальные")
+            self.лейбл_дневальные.pack(side='top', pady=(0, 5))
 
-        # Выбор количества дневальных (Spinbox)
-        # Determine max quantity from loaded data, default to 0 if not available
-        max_дневальные = self.данные_поста.get('дневальный_кол', 0)
-        self.выбор_количества = ttk.Spinbox(
-            self.фрейм_выбор_количества,
-            from_=0,
-            to=max_дневальные, # Use max quantity from data
-            textvariable=self.количество_дневальных_var,
-            width=5,
-            command=self._обновить_поля_ввода_дневальные # Update fields on change
-        )
-        self.выбор_количества.pack(side='top')
-        # Set initial quantity (e.g., to the max allowed or 0)
-        self.количество_дневальных_var.set(max_дневальные) # Or set to 0 if you prefer
+            # Выбор количества дневальных (Spinbox)
+            # Determine max quantity from loaded data, default to 0 if not available
+            max_дневальные = self.данные_поста.get('дневальный_кол', 0)
+            self.выбор_количества = ttk.Spinbox(
+                self.фрейм_выбор_количества,
+                from_=0,
+                to=max_дневальные, # Use max quantity from data
+                textvariable=self.количество_дневальных_var,
+                width=5,
+                command=self._обновить_поля_ввода_дневальные # Update fields on change
+            )
+            self.выбор_количества.pack(side='top')
+            # Set initial quantity (e.g., to the max allowed or 0)
+            # Устанавливаем начальное количество в 0, если дневальные не обязательны, или в макс, если обязательны
+            # Пока оставим max_дневальные, но можно изменить логику при необходимости
+            self.количество_дневальных_var.set(max_дневальные)
 
-        # Фрейм для полей ввода дневальных (справа)
-        self.фрейм_поля_ввода_дневальные = ttk.Frame(self.фрейм_дневальные)
-        self.фрейм_поля_ввода_дневальные.pack(side='right', fill='both', expand=True, padx=5, pady=5)
+            # Фрейм для полей ввода дневальных (справа)
+            self.фрейм_поля_ввода_дневальные = ttk.Frame(self.фрейм_дневальные)
+            self.фрейм_поля_ввода_дневальные.pack(side='right', fill='both', expand=True, padx=5, pady=5)
 
-        # Инициализируем поля ввода для дневальных
-        self._обновить_поля_ввода_дневальные()
+            # Инициализируем поля ввода для дневальных
+            self._обновить_поля_ввода_дневальные()
+        else:
+            # Если дневальные не назначаются, убедимся, что связанные переменные инициализированы
+            # (хотя они уже инициализированы в начале __init__)
+            self.фрейм_дневальные = None # Явно указываем, что фрейма нет
+            self.количество_дневальных_var.set(0)
+            self.поля_ввода_дневальные = []
 
         # --- End of Дневальные Section ---
 
@@ -230,17 +261,29 @@ class ПостНаряда(ttk.Frame):
         """Обновляет поле ввода в зависимости от выбранного типа сотрудника"""
         if self.поле_ввода_дежурный:
             self.поле_ввода_дежурный.destroy()
-            
-        if self.тип_сотрудника_var.get() == "officer":
+            self.поле_ввода_дежурный = None # Reset to None
+
+        selected_type = self.тип_сотрудника_var.get()
+        can_assign_officer = self.данные_поста.get('дежурный_офицер', False)
+        can_assign_cadet = self.данные_поста.get('дежурный_курсант', False)
+
+        if selected_type == "officer" and can_assign_officer:
             self.поле_ввода_дежурный = ПоискОфицера(self.фрейм_дежурный)
-        else:
+        elif selected_type == "cadet" and can_assign_cadet:
             self.поле_ввода_дежурный = ПоискКурсанта(self.фрейм_дежурный)
-            
-        self.поле_ввода_дежурный.pack(side='left', fill='x', expand=True, padx=5, pady=5)
+        # else: # Если тип не выбран или не разрешен, поле не создается
+        #     pass
+
+        if self.поле_ввода_дежурный:
+            self.поле_ввода_дежурный.pack(side='left', fill='x', expand=True, padx=5, pady=5)
 
     # --- New Method for Дневальные ---
     def _обновить_поля_ввода_дневальные(self):
         """Обновляет поля ввода для дневальных в зависимости от выбранного количества."""
+        # Проверяем, существует ли фрейм для полей ввода дневальных
+        if not hasattr(self, 'фрейм_поля_ввода_дневальные') or not self.фрейм_поля_ввода_дневальные:
+            return # Ничего не делаем, если фрейм не был создан
+
         # Уничтожаем старые поля ввода
         for поле_ввода in self.поля_ввода_дневальные:
             поле_ввода.destroy()
