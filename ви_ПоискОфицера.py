@@ -8,7 +8,7 @@ class ПоискОфицера(ttk.Frame):
     Виджет для поиска офицеров.
     Состоит из поля ввода и выпадающего списка результатов.
     """
-    def __init__(self, родитель, callback=None, placeholder="Введите фамилию для поиска...", высота_списка=5):
+    def __init__(self, родитель, callback=None, placeholder="Введите фамилию офицера для поиска...", высота_списка=5):
         super().__init__(родитель)
         
         self.callback = callback
@@ -16,6 +16,7 @@ class ПоискОфицера(ttk.Frame):
         self.результаты_поиска = []
         self.высота_списка = высота_списка
         self.root = родитель
+        self.search_timer = None  # Таймер для задержки поиска
         
         # Создаем контейнер
         self.pack(fill='x', expand=True)
@@ -66,7 +67,7 @@ class ПоискОфицера(ttk.Frame):
         self.список.pack(fill="both", expand=True)
         
         # Привязываем события
-        self.список.bind("<Enter>", lambda e: self.entry.focus_set())
+        # self.список.bind("<Enter>", lambda e: self.entry.focus_set()) # Убрал, чтобы фокус не перескакивал
         self.список.bind("<Motion>", self._on_mouse_motion)
         self.список.bind("<Button-1>", self._on_click_item)
         self.popup.bind("<FocusOut>", self._on_popup_focus_out)
@@ -139,10 +140,12 @@ class ПоискОфицера(ttk.Frame):
         if self.popup and self.список.size() > 0:
             x = self.entry.winfo_rootx()
             y = self.entry.winfo_rooty() + self.entry.winfo_height()
-            self.popup.geometry(f"+{x}+{y}")
+            width = self.entry.winfo_width() # Получаем ширину поля ввода
+            # Устанавливаем геометрию с учетом ширины
+            self.popup.geometry(f"{width}x{self.список.winfo_reqheight()}+{x}+{y}") 
             self.popup.deiconify()
             self.popup.lift()
-            self.popup.focus_set()
+            # self.popup.focus_set() # Убрал фокус с попапа, чтобы ввод не прерывался
 
     def _скрыть_список(self, event=None):
         """Скрывает выпадающий список"""
@@ -175,7 +178,9 @@ class ПоискОфицера(ttk.Frame):
 
     def _on_popup_focus_out(self, event):
         """Обработчик потери фокуса выпадающим окном"""
-        self._скрыть_список()
+        # Скрываем список, только если фокус ушел не на поле ввода
+        if self.focus_get() != self.entry:
+            self._скрыть_список()
 
     def _on_focus_in(self, event):
         """Обработчик получения фокуса полем ввода"""
@@ -185,18 +190,38 @@ class ПоискОфицера(ttk.Frame):
 
     def _on_focus_out(self, event):
         """Обработчик потери фокуса полем ввода"""
-        if not self.entry.get():
-            self.entry.insert(0, self.placeholder)
-            self.entry.config(foreground='gray')
+        # Используем after для небольшой задержки, чтобы проверить, куда ушел фокус
+        self.after(100, self._check_focus_and_hide)
+
+    def _check_focus_and_hide(self):
+        """Проверяет фокус и скрывает список, если фокус не на списке или поле ввода"""
+        focused_widget = self.focus_get()
+        # Не скрываем, если фокус на списке или его дочерних элементах, или на самом поле ввода
+        if focused_widget != self.entry and (not self.popup or focused_widget != self.список):
+            if not self.entry.get():
+                self.entry.insert(0, self.placeholder)
+                self.entry.config(foreground='gray')
+            self._скрыть_список()
+        elif not self.entry.get() and focused_widget != self.entry:
+             # Если поле пустое и фокус не на нем, но на списке - ставим плейсхолдер
+             # Это предотвращает исчезновение плейсхолдера при клике на список
+             # Но не скрываем список
+             self.entry.insert(0, self.placeholder)
+             self.entry.config(foreground='gray')
 
     def _on_key_release(self, event):
         """Обработчик ввода текста в поле поиска"""
         if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
             return
         
+        # Отменяем предыдущий таймер, если он есть
+        if self.search_timer:
+            self.after_cancel(self.search_timer)
+            
         текст_поиска = self.entry.get().strip()
         if текст_поиска and текст_поиска != self.placeholder:
-            self._выполнить_поиск(текст_поиска)
+            # Запускаем поиск с задержкой в 300 мс
+            self.search_timer = self.after(300, lambda: self._выполнить_поиск(текст_поиска))
         else:
             self._скрыть_список()
 
