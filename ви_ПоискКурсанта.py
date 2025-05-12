@@ -24,7 +24,7 @@ class ПоискКурсанта(ttk.Frame):
         
         # Создаем поле ввода
         self.entry = ttk.Entry(self)
-        self.entry.pack(fill='x', padx=5, pady=5)
+        self.entry.pack(fill='x')
         self.entry.insert(0, self.placeholder)
         self.entry.config(foreground='gray')
         

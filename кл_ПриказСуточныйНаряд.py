@@ -51,8 +51,8 @@ class ПриказСуточныйНаряд(ttk.Frame):
         контейнер.pack(fill='both', expand=True)
         
         # Создаем левую часть для основных данных
-        левая_часть = ttk.Frame(контейнер)
-        левая_часть.pack(side='left', fill='both', expand=True)
+        левая_часть = ttk.Frame(контейнер, width=200)
+        левая_часть.pack(side='left', fill="y",anchor='w',expand=True)
         
         # Создаем заголовок
         ttk.Label(левая_часть, text="Создание суточного приказа", 

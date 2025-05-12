@@ -16,12 +16,15 @@ class ГлавноеОкно(tk.Tk):
         super().__init__()
         self.title("Учет личного состава")
         
+        # Разворачиваем окно на весь экран
+        self.state('zoomed')
+        
         # Устанавливаем начальный размер окна
         self.geometry("800x600")
         
         # Создаем фреймы
         self.левый_фрейм = ttk.Frame(self, width=200, style='Left.TFrame')
-        self.центральный_фрейм = ttk.Frame(self)
+        self.центральный_фрейм = ttk.Frame(self, width=200)
         
         # Располагаем фреймы
         self.левый_фрейм.pack(side='left', fill='y')
@@ -53,12 +56,8 @@ class ГлавноеОкно(tk.Tk):
 
     def _center_window(self):
         """Центрирует окно на экране, сохраняя текущие размеры"""
-        self.update_idletasks()
-        current_width = self.winfo_width()
-        current_height = self.winfo_height()
-        x = (self.winfo_screenwidth() // 2) - (current_width // 2)
-        y = (self.winfo_screenheight() // 2) - (current_height // 2)
-        self.geometry(f"+{x}+{y}")  # Меняем только позицию, не размеры
+        # Нет необходимости центрировать, если окно развернуто на весь экран
+        pass
 
     def показать_список_сотрудников(self, тип_сотрудника):
         """Отображает список сотрудников в центральном фрейме"""

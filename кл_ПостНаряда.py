@@ -21,6 +21,10 @@ class ПостНаряда(ttk.Frame):
         self.дата_наряда = дата_наряда
         self.подразделение = подразделение
         
+        # Создаем стиль для неактивных элементов
+        style = ttk.Style()
+        style.configure('Dim.TRadiobutton', foreground='#666666')
+        
         # Initialize other variables
         self.is_assigned_var = tk.BooleanVar(value=True)
         self.тип_сотрудника_var = tk.StringVar(value="officer")  # Set default here ONLY
@@ -30,35 +34,28 @@ class ПостНаряда(ttk.Frame):
         # Load post data
         self.данные_поста = self._загрузить_данные_поста()
         
-        # Set custom styles
-        style = ttk.Style()
-        style.configure('фрейм_Пост_наряда.TFrame', background='#ffcccc')
-        style.configure('фрейм_назначен.TFrame', background='#f0f0f0')
-        
-        # Initialize with custom style
-        super().__init__(master, style='фрейм_Пост_наряда.TFrame', **kwargs)
+        # Initialize instance
+        super().__init__(master, **kwargs)
         
         # Configure frame with minimum height and full width (no vertical expansion)
         self.pack(fill='x')  # Only fill horizontally
         self.configure(height=50)  # Set fixed minimum height to 50 pixels
         
         # Создаем фрейм для чекбокса
-        self.фрейм_назначен = ttk.Frame(self, style='фрейм_назначен.TFrame')
-        self.фрейм_назначен.pack(side='left', padx=5, pady=5)
+        self.фрейм_назначен = ttk.Frame(self)
+        self.фрейм_назначен.pack(side='left', anchor='n') # Выравнивание по верхнему краю
         
         # Чекбокс
         self.status_check = ttk.Checkbutton(
             self.фрейм_назначен, 
-            variable=self.is_assigned_var
+            variable=self.is_assigned_var,
+            command=self._обновить_состояние_элементов_в_зависимости_от_назначения # Добавляем команду
         )
-        self.status_check.pack(padx=5, pady=5)
+        self.status_check.pack()
 
-        # Добавляем стиль для нового фрейма
-        style.configure('фрейм_для_наименование_дата.TFrame', background='#e0ffff')  # Light blue
-        
         # Создаем фрейм для наименования и даты
-        self.фрейм_для_наименование_дата = ttk.Frame(self, style='фрейм_для_наименование_дата.TFrame')
-        self.фрейм_для_наименование_дата.pack(side='top', fill='x', padx=5, pady=5)
+        self.фрейм_для_наименование_дата = ttk.Frame(self)
+        self.фрейм_для_наименование_дата.pack(side='top', fill='x')
         
         # Фрейм для наименования поста
         self.фрейм_наименование = ttk.Frame(self.фрейм_для_наименование_дата)
@@ -71,11 +68,11 @@ class ПостНаряда(ttk.Frame):
             font=('Helvetica', 10, 'bold'),
             justify='left'  # Add this line to align text to the left
         )
-        self.name_label.pack(padx=5, pady=5, anchor='w')  # Add anchor='w' for left alignment
+        self.name_label.pack(anchor='w')  # Add anchor='w' for left alignment
         
         # Фрейм для даты
         self.фрейм_дата = ttk.Frame(self.фрейм_для_наименование_дата)
-        self.фрейм_дата.pack(side='left', padx=5)
+        self.фрейм_дата.pack(side='left')
         
         # Метка с датой
         self.date_label = ttk.Label(
@@ -83,14 +80,11 @@ class ПостНаряда(ttk.Frame):
             text=self.дата_наряда.strftime("%d.%m.%Y"),
             font=('Helvetica', 10)
         )
-        self.date_label.pack(padx=5, pady=5)
+        self.date_label.pack()
 
-        # Добавляем стиль для нового фрейма
-        style.configure('фрейм_поля_ввода.TFrame', background='#ff0000')  # Red
-        
         # Создаем основной фрейм для полей ввода
-        self.фрейм_поля_ввода = ttk.Frame(self, style='фрейм_поля_ввода.TFrame')
-        self.фрейм_поля_ввода.pack(side='left', fill='both', expand=True, padx=5, pady=5)
+        self.фрейм_поля_ввода = ttk.Frame(self)
+        self.фрейм_поля_ввода.pack(side='left', fill='both', expand=True)
         
         # Создаем фрейм для выбора типа сотрудника
         self.фрейм_выбор_типа_сотрудника = ttk.Frame(self.фрейм_поля_ввода)
@@ -110,15 +104,15 @@ class ПостНаряда(ttk.Frame):
                 variable=self.тип_сотрудника_var,
                 value="officer",
                 command=self._обновить_поле_ввода_дежурный
-            ).pack(side='top', anchor='w', pady=2) # Изменено side на 'top' и добавлен anchor='w', pady=2
+            ).pack(side='top', anchor='w') # Изменено side на 'top' и добавлен anchor='w', pady=2
             ttk.Radiobutton(
                 self.фрейм_выбор_типа_сотрудника,
                 text="Курсант",
                 variable=self.тип_сотрудника_var,
                 value="cadet",
                 command=self._обновить_поле_ввода_дежурный
-            ).pack(side='top', anchor='w', pady=2) # Изменено side на 'top' и добавлен anchor='w', pady=2
-            self.фрейм_выбор_типа_сотрудника.pack(side='left', fill='y', padx=5) # Изменено fill на 'y' и padx
+            ).pack(side='top', anchor='w') # Изменено side на 'top' и добавлен anchor='w', pady=2
+            self.фрейм_выбор_типа_сотрудника.pack(side='left', fill='y') # Изменено fill на 'y' и padx
         elif can_assign_officer:
             # Только офицер доступен - скрываем выбор, устанавливаем офицера
             self.тип_сотрудника_var.set("officer")
@@ -137,21 +131,19 @@ class ПостНаряда(ttk.Frame):
         # self.тип_сотрудника_var.trace_add('write', lambda *_: self._обновить_поле_ввода_дежурный()) # No longer needed
         
         # Создаем фрейм для полей ввода
-        self.фрейм_поля_для_ввода = ttk.Frame(self.фрейм_поля_ввода, style='фрейм_поля_для_ввода.TFrame')
-        self.фрейм_поля_для_ввода.pack(side='right', fill='both', expand=True, padx=5, pady=5)
+        self.фрейм_поля_для_ввода = ttk.Frame(self.фрейм_поля_ввода)
+        self.фрейм_поля_для_ввода.pack(side='right', fill='both', expand=True)
 
-        # Добавляем стили для новых фреймов
-        style.configure('фрейм_дежурный.TFrame', background='#0000ff')  # Blue
-        style.configure('фрейм_дневальные.TFrame', background='#ffc0cb')  # Pink
-        
         # Создаем фрейм для дежурных
-        self.фрейм_дежурный = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дежурный.TFrame')
-        self.фрейм_дежурный.pack(side='top', fill='both', expand=True, padx=5, pady=5)
+        self.фрейм_дежурный = ttk.Frame(self.фрейм_поля_для_ввода)
+        self.фрейм_дежурный.pack(side='top', fill='both', expand=True)
         
         # Лейбл "Дежурный" (отображается, если можно назначить курсанта или обоих)
         if not can_assign_officer or can_assign_cadet:
             self.лейбл_дежурный = ttk.Label(self.фрейм_дежурный, text="Дежурный")
-            self.лейбл_дежурный.pack(side='left', padx=5, pady=5)
+            # ширина 15
+            self.лейбл_дежурный.configure(width=15)  # Set width to 15 characters
+            self.лейбл_дежурный.pack(side='left', anchor='n') # Выравнивание по верхнему краю
         else:
             self.лейбл_дежурный = None # Убедимся, что атрибут существует, даже если метка не создана
         
@@ -164,16 +156,18 @@ class ПостНаряда(ttk.Frame):
         # Check if dnavalnye are assigned for this post
         if self.данные_поста.get('дневальный', False):
             # Создаем фрейм для дневальных только если они нужны
-            self.фрейм_дневальные = ttk.Frame(self.фрейм_поля_для_ввода, style='фрейм_дневальные.TFrame')
-            self.фрейм_дневальные.pack(side='top', fill='both', expand=True, padx=5, pady=5)
+            self.фрейм_дневальные = ttk.Frame(self.фрейм_поля_для_ввода)
+            self.фрейм_дневальные.pack(side='top', fill='both', expand=True)
 
             # Фрейм для выбора количества (слева)
             self.фрейм_выбор_количества = ttk.Frame(self.фрейм_дневальные)
-            self.фрейм_выбор_количества.pack(side='left', fill='y', padx=5, pady=5)
+            self.фрейм_выбор_количества.pack(side='left', fill='y')
 
             # Лейбл "Дневальные"
             self.лейбл_дневальные = ttk.Label(self.фрейм_выбор_количества, text="Дневальные")
-            self.лейбл_дневальные.pack(side='top', pady=(0, 5))
+            # ширина 15
+            self.лейбл_дневальные.configure(width=15)  # Set width to 15 characters
+            self.лейбл_дневальные.pack(side='top')
 
             # Выбор количества дневальных (Spinbox)
             # Determine max quantity from loaded data, default to 0 if not available
@@ -194,7 +188,7 @@ class ПостНаряда(ttk.Frame):
 
             # Фрейм для полей ввода дневальных (справа)
             self.фрейм_поля_ввода_дневальные = ttk.Frame(self.фрейм_дневальные)
-            self.фрейм_поля_ввода_дневальные.pack(side='right', fill='both', expand=True, padx=5, pady=5)
+            self.фрейм_поля_ввода_дневальные.pack(side='right', fill='both', expand=True)
 
             # Инициализируем поля ввода для дневальных
             self._обновить_поля_ввода_дневальные()
@@ -209,6 +203,9 @@ class ПостНаряда(ttk.Frame):
 
         # Remove the duplicate variable definition at the end
         # self.тип_сотрудника_var = tk.StringVar(value="officer") # Remove this line
+
+        # Устанавливаем начальное состояние элементов в зависимости от чекбокса
+        self._обновить_состояние_элементов_в_зависимости_от_назначения()
 
     def _загрузить_данные_поста(self) -> dict:
         """Загружает данные поста из БД по ID"""
@@ -275,7 +272,7 @@ class ПостНаряда(ttk.Frame):
         #     pass
 
         if self.поле_ввода_дежурный:
-            self.поле_ввода_дежурный.pack(side='left', fill='x', expand=True, padx=5, pady=5)
+            self.поле_ввода_дежурный.pack(side='left', fill='x', expand=True, anchor='n') # Выравнивание по верхнему краю
 
     # --- New Method for Дневальные ---
     def _обновить_поля_ввода_дневальные(self):
@@ -297,14 +294,68 @@ class ПостНаряда(ttk.Frame):
         # Создаем новые поля ввода
         for i in range(количество):
             поле_ввода = ПоискКурсанта(self.фрейм_поля_ввода_дневальные)
-            поле_ввода.pack(side='top', fill='x', expand=True, padx=5, pady=2) # Pack vertically
+            поле_ввода.pack(side='top', fill='x', expand=True, pady=2) # Pack vertically with reduced padding
             self.поля_ввода_дневальные.append(поле_ввода)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Состав наряда")
-    root.geometry("800x600")
+    def _обновить_состояние_элементов_в_зависимости_от_назначения(self, *_):
+        """Обновляет состояние и внешний вид элементов в зависимости от состояния чекбокса 'назначен'."""
+        is_assigned = self.is_assigned_var.get()
+        new_state = tk.NORMAL if is_assigned else tk.DISABLED
+        # Изменяем цвет на более темный серый для неактивных элементов
+        label_color = 'black' if is_assigned else '#666666'  # Темно-серый цвет
 
-    app = ПостНаряда(root, пост_ид=7, дата_наряда=datetime.now(), подразделение="")
-    app.pack(fill='x')  # Убрал expand=True, чтобы фрейм не растягивался по высоте
-    root.mainloop()
+        # Обновляем основные метки
+        self.name_label.configure(foreground=label_color)
+        self.date_label.configure(foreground=label_color)
+
+        # Обновляем элементы выбора типа сотрудника (радиокнопки)
+        if hasattr(self, 'фрейм_выбор_типа_сотрудника') and self.фрейм_выбор_типа_сотрудника.winfo_exists():
+            for widget in self.фрейм_выбор_типа_сотрудника.winfo_children():
+                if isinstance(widget, ttk.Radiobutton):
+                    widget.configure(state=new_state)
+                    # Дополнительно настраиваем стиль для радиокнопок
+                    widget.configure(style='Dim.TRadiobutton' if not is_assigned else 'TRadiobutton')
+        
+        # Обновляем метку дежурного
+        if hasattr(self, 'лейбл_дежурный') and self.лейбл_дежурный and self.лейбл_дежурный.winfo_exists():
+            self.лейбл_дежурный.configure(foreground=label_color)
+
+        # Обновляем поле ввода дежурного
+        if hasattr(self, 'поле_ввода_дежурный') and self.поле_ввода_дежурный and self.поле_ввода_дежурный.winfo_exists():
+            try:
+                if hasattr(self.поле_ввода_дежурный, 'set_enabled'):
+                    self.поле_ввода_дежурный.set_enabled(is_assigned)
+                else:
+                    for child in self.поле_ввода_дежурный.winfo_children():
+                        if isinstance(child, (ttk.Entry, ttk.Button)):
+                            child.configure(state=new_state)
+                        elif hasattr(child, 'set_enabled'):
+                            child.set_enabled(is_assigned)
+            except tk.TclError:
+                pass
+
+        # Обновляем элементы дневальных
+        if hasattr(self, 'фрейм_дневальные') and self.фрейм_дневальные and self.фрейм_дневальные.winfo_exists():
+            # Обновляем метку дневальных
+            if hasattr(self, 'лейбл_дневальные') and self.лейбл_дневальные:
+                self.лейбл_дневальные.configure(foreground=label_color)
+            
+            # Обновляем спинбокс выбора количества
+            if hasattr(self, 'выбор_количества') and self.выбор_количества:
+                self.выбор_количества.configure(state=new_state)
+            
+            # Обновляем поля ввода дневальных
+            if hasattr(self, 'поля_ввода_дневальные'):
+                for поле_ввода in self.поля_ввода_дневальные:
+                    if поле_ввода and поле_ввода.winfo_exists():
+                        try:
+                            if hasattr(поле_ввода, 'set_enabled'):
+                                поле_ввода.set_enabled(is_assigned)
+                            else:
+                                for child in поле_ввода.winfo_children():
+                                    if isinstance(child, (ttk.Entry, ttk.Button)):
+                                        child.configure(state=new_state)
+                                    elif hasattr(child, 'set_enabled'):
+                                        child.set_enabled(is_assigned)
+                        except tk.TclError:
+                            pass
