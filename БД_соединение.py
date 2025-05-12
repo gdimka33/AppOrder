@@ -57,10 +57,10 @@ def выполнить_запрос(sql, params=None):
         
         cursor = conn.cursor()
         
-        # Логируем запрос
-        logger.debug(f"SQL запрос: {sql}")
-        if params:
-            logger.debug(f"Параметры: {params}")
+        # # Логируем запрос
+        # logger.debug(f"SQL запрос: {sql}")
+        # if params:
+        #     logger.debug(f"Параметры: {params}")
             
         # Выполняем запрос
         if params:

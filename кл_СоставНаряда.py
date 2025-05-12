@@ -11,7 +11,7 @@ class СоставНаряда(ttk.Frame):
     
     def __init__(self, родитель, дата_наряда: datetime = None):
         super().__init__(родитель)
-        self.pack(fill='both', expand=True)
+        self.pack(side="top", fill='both', expand=True)
         self.дата_наряда = дата_наряда or datetime.now()
         
         # Создаем канвас и фрейм для прокрутки
@@ -26,6 +26,12 @@ class СоставНаряда(ttk.Frame):
         )
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        # Привязываем прокрутку к колесику мыши
+        self.canvas.bind_all(
+            "<MouseWheel>",
+            lambda event: self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        )
         
         # Размещаем элементы
         self.canvas.pack(side="left", fill="both", expand=True)
