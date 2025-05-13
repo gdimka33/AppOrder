@@ -28,10 +28,8 @@ class СоставНаряда(ttk.Frame):
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         
         # Привязываем прокрутку к колесику мыши
-        self.canvas.bind_all(
-            "<MouseWheel>",
-            lambda event: self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        )
+        self._привязать_прокрутку(self.canvas)
+        self._привязать_прокрутку(self.scrollable_frame)
         
         # Размещаем элементы
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -40,6 +38,16 @@ class СоставНаряда(ttk.Frame):
         # Загружаем данные
         self._загрузить_посты()
     
+    def _привязать_прокрутку(self, виджет):
+        """Привязывает обработчик прокрутки к виджету и всем его дочерним элементам"""
+        виджет.bind("<MouseWheel>", self._прокрутка_мышью)
+        виджет.bind("<Button-4>", self._прокрутка_мышью)  # Для Linux
+        виджет.bind("<Button-5>", self._прокрутка_мышью)  # Для Linux
+        
+        # Для всех дочерних виджетов тоже привязываем прокрутку
+        for дочерний in виджет.winfo_children():
+            self._привязать_прокрутку(дочерний)
+
     def _загрузить_посты(self):
         """Загружает список постов из базы данных и создает для каждого виджет ПостНаряда"""
         try:
@@ -70,10 +78,11 @@ class СоставНаряда(ttk.Frame):
                         пост_ид=пост['id'],
                         дата_наряда=self.дата_наряда,
                         подразделение=""
-                        # Remove the conflicting style argument below
-                        # style="Duty.TFrame" 
                     )
                     пост_наряда.pack(fill='x', padx=5, pady=2)
+                    
+                    # Привязываем прокрутку к новому виджету
+                    self._привязать_прокрутку(пост_наряда)
                     
                     # Обновляем канвас после добавления каждого виджета
                     self.canvas.update_idletasks()
@@ -97,6 +106,14 @@ class СоставНаряда(ttk.Frame):
             (текст_ошибки, ["red"])
         ]
         ИнформационноеОкно(self, форматированный_текст)
+
+    def _прокрутка_мышью(self, event):
+        """Обработчик прокрутки колесиком мыши"""
+        if event.num == 5 or event.delta < 0:  # Прокрутка вниз
+            self.canvas.yview_scroll(1, "units")
+        elif event.num == 4 or event.delta > 0:  # Прокрутка вверх
+            self.canvas.yview_scroll(-1, "units")
+        return "break"
 
 if __name__ == "__main__":
     root = tk.Tk()
